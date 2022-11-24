@@ -14,15 +14,15 @@ pub struct MongoRepo {
 }
 
 impl MongoRepo {
-    pub fn init() -> Self {
+    pub async fn init() -> Self {
         dotenv().ok();
-        let uri = match env::var("MONGO_URI") {
-            Ok(v) => v.to_string(),
-            Err(_) => format!("Error loading env variable"),
-        };
-        let client = Client::with_uri_str(uri).unwrap();
+
+        let client_uri = env::var("MONGODB_URI").expect("You must set the MONGODB_URI environment var!");
+
+        let client = Client::with_uri_str(client_uri).unwrap();
         let db = client.database("rustDB");
         let col: Collection<User> = db.collection("User");
+
         MongoRepo { col }
     }
 
