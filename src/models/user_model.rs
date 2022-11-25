@@ -3,6 +3,12 @@ use serde::{Serialize, Deserialize};
 use serde_with::skip_serializing_none;
 use struct_helpers::{to_lower_case, to_lower_case_optional, Helpers};
 
+#[derive(Serialize, Deserialize, Debug)]
+pub enum RoleEnum {
+    User,
+    Administrator,
+}
+
 #[skip_serializing_none]
 #[derive(Debug, Default, Serialize, Deserialize, Helpers)]
 pub struct User {
@@ -14,7 +20,7 @@ pub struct User {
     pub username: Option<String>,
     pub email: Option<String>,
     pub password: Option<String>,
-    pub role: Option<String>,
+    pub role: Option<RoleEnum>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Helpers)]

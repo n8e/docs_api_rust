@@ -4,7 +4,7 @@ use dotenv::dotenv;
 use rocket::futures::StreamExt;
 
 use mongodb::{
-    bson::{doc, oid::ObjectId},
+    bson::{doc, oid::ObjectId, to_document},
     results::{DeleteResult, InsertOneResult, UpdateResult},
     Client, Collection,
 };
@@ -67,20 +67,12 @@ impl MongoRepo {
     }
 
     pub async fn update_user(&self, id: &String, new_user: User) -> Result<UpdateResult, Box<dyn Error>> {
+        let mut doc = to_document(&new_user).unwrap();
+        doc.remove("_id");
+
         let obj_id = ObjectId::parse_str(id).unwrap();
         let filter = doc! {"_id": obj_id};
-        let new_doc = doc! {
-            "$set":
-                {
-                    "id": new_user.id,
-                    "firstname": new_user.firstname,
-                    "lastname": new_user.lastname,
-                    "username": new_user.username,
-                    "email": new_user.email,
-                    "password": new_user.password,
-                    "role": new_user.role
-                },
-        };
+        let new_doc = doc! { "$set": doc };
         let updated_doc = self
             .col
             .update_one(filter, new_doc, None)
