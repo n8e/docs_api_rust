@@ -1,1 +1,2 @@
-pub mod user_api;
+pub mod auth;
+pub mod user;

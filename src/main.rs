@@ -1,12 +1,17 @@
 // add the modules
 mod api;
+mod helpers;
 mod models;
 mod repository;
+
+#[cfg(test)]
+mod tests;
 
 #[macro_use]
 extern crate rocket;
 
-use api::user_api::{
+use api::auth::get_jwt;
+use api::user::{
     create_user,
     get_user,
     update_user,
@@ -15,14 +20,20 @@ use api::user_api::{
 };
 use repository::mongodb_repo::MongoRepo;
 
+use rocket::{get, http::Status, serde::json::Json, Build, Rocket};
+
+#[get("/")]
+fn hello() -> Result<Json<String>, Status> {
+    Ok(Json(String::from("Hello from rust and mongoDB")))
+}
+
 #[launch]
-fn rocket() -> _ {
-    let db = MongoRepo::init();
+async fn rocket() -> Rocket<Build> {
+    let db = MongoRepo::init().await;
+
     rocket::build()
         .manage(db)
-        .mount("/", routes![create_user])
-        .mount("/", routes![get_user])
-        .mount("/", routes![update_user])
-        .mount("/", routes![delete_user])
-        .mount("/", routes![get_all_users])
+        .mount("/", routes![hello])
+        .mount("/users", routes![create_user, get_user, update_user, delete_user, get_all_users])
+        .mount("/auth", routes![get_jwt])
 }

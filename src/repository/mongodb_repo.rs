@@ -1,11 +1,12 @@
-use std::env;
+use std::{env, error::Error};
 extern crate dotenv;
 use dotenv::dotenv;
+use rocket::futures::StreamExt;
 
 use mongodb::{
-    bson::{extjson::de::Error, oid::ObjectId, doc},
+    bson::{doc, oid::ObjectId},
     results::{DeleteResult, InsertOneResult, UpdateResult},
-    sync::{Client, Collection},
+    Client, Collection,
 };
 use crate::models::user_model::User;
 
@@ -17,16 +18,21 @@ impl MongoRepo {
     pub async fn init() -> Self {
         dotenv().ok();
 
-        let client_uri = env::var("MONGODB_URI").expect("You must set the MONGODB_URI environment var!");
+        let client_uri = match env::var("MONGO_URI") {
+            Ok(v) => v.to_string(),
+            Err(_) => format!("You must set the MONGO_URI environment var!")
+        };
 
-        let client = Client::with_uri_str(client_uri).unwrap();
+        let client = Client::with_uri_str(client_uri).await.unwrap();
         let db = client.database("rustDB");
         let col: Collection<User> = db.collection("User");
 
         MongoRepo { col }
     }
+}
 
-    pub fn create_user(&self, new_user: User) -> Result<InsertOneResult, Error> {
+impl MongoRepo {
+    pub async fn create_user(&self, new_user: User) -> Result<InsertOneResult, Box<dyn Error>> {
         let new_doc = User {
             id: None,
             firstname: new_user.firstname,
@@ -36,26 +42,31 @@ impl MongoRepo {
             password: new_user.password,
             role: new_user.role
         };
-        let user = self
+        let user = match self
             .col
-            .insert_one(new_doc, None)
-            .ok()
-            .expect("Error creating user");
+            .insert_one(new_doc, None).await {
+                Ok(u) => u,
+                Err(e) => {
+                    print!("Error creating user: {}", e);
+                    panic!("Error creating user: {}", e)
+                }
+            };
         Ok(user)
     }
 
-    pub fn get_user(&self, id: &String) -> Result<User, Error> {
+    pub async fn get_user(&self, id: &String) -> Result<User, Box<dyn Error>> {
         let obj_id = ObjectId::parse_str(id).unwrap();
         let filter = doc! {"_id": obj_id};
         let user_detail = self
             .col
             .find_one(filter, None)
+            .await 
             .ok()
             .expect("Error getting user's detail");
         Ok(user_detail.unwrap())
     }
 
-    pub fn update_user(&self, id: &String, new_user: User) -> Result<UpdateResult, Error> {
+    pub async fn update_user(&self, id: &String, new_user: User) -> Result<UpdateResult, Box<dyn Error>> {
         let obj_id = ObjectId::parse_str(id).unwrap();
         let filter = doc! {"_id": obj_id};
         let new_doc = doc! {
@@ -73,29 +84,33 @@ impl MongoRepo {
         let updated_doc = self
             .col
             .update_one(filter, new_doc, None)
+            .await
             .ok()
             .expect("Error updating user");
         Ok(updated_doc)
     }
 
-    pub fn delete_user(&self, id: &String) -> Result<DeleteResult, Error> {
+    pub async fn delete_user(&self, id: &String) -> Result<DeleteResult, Box<dyn Error>> {
         let obj_id = ObjectId::parse_str(id).unwrap();
         let filter = doc! {"_id": obj_id};
         let user_detail = self
             .col
             .delete_one(filter, None)
+            .await
             .ok()
             .expect("Error deleting user");
         Ok(user_detail)
     }
 
-    pub fn get_all_users(&self) -> Result<Vec<User>, Error> {
-        let cursors = self
-            .col
-            .find(None, None)
-            .ok()
-            .expect("Error getting list of users");
-        let users = cursors.map(|doc| doc.unwrap()).collect();
+    pub async fn get_all_users(&self) -> Result<Vec<User>, Box<dyn Error>> {
+        let users = match self.col.find(None, None).await {
+                Ok(cursors) => cursors.map(|doc| doc.unwrap()).collect().await,
+                Err(_e) => {
+                    println!("Error getting list of users");
+                    Vec::new()
+                }
+            };
+
         Ok(users)
     }
 }
