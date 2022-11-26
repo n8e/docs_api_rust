@@ -19,7 +19,7 @@ pub struct User {
     pub lastname: Option<String>,
     pub username: Option<String>,
     pub email: Option<String>,
-    pub password: Option<String>,
+    pub password: String,
     pub role: Option<RoleEnum>,
 }
 

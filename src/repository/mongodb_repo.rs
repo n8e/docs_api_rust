@@ -1,17 +1,35 @@
 use std::{env, error::Error};
 extern crate dotenv;
 use dotenv::dotenv;
-use rocket::futures::StreamExt;
+use rocket::{futures::StreamExt};
 
 use mongodb::{
     bson::{doc, oid::ObjectId, to_document},
     results::{DeleteResult, InsertOneResult, UpdateResult},
     Client, Collection,
 };
-use crate::models::user_model::User;
+use crate::{models::user_model::User, helpers::jwt};
+
+use argon2::{
+    password_hash::{
+        rand_core::OsRng,
+        PasswordHash, PasswordHasher, PasswordVerifier, SaltString
+    },
+    Argon2
+};
 
 pub struct MongoRepo {
     col: Collection<User>,
+}
+
+pub struct LoginObject {
+    username: String,
+    password: String,
+}
+
+pub struct AuthResponse {
+    user: User,
+    token: String,
 }
 
 impl MongoRepo {
@@ -33,15 +51,24 @@ impl MongoRepo {
 
 impl MongoRepo {
     pub async fn create_user(&self, new_user: User) -> Result<InsertOneResult, Box<dyn Error>> {
+        // hash password before saving
+        let password = new_user.password.as_bytes();
+        let salt = SaltString::generate(&mut OsRng);
+        // Argon2 with default params (Argon2id v19)
+        let argon2 = Argon2::default();
+        // Hash password to PHC string ($argon2id$v=19$...)
+        let password_hash = argon2.hash_password(password, &salt).unwrap();
+
         let new_doc = User {
             id: None,
             firstname: new_user.firstname,
             lastname: new_user.lastname,
             username: new_user.username,
             email: new_user.email,
-            password: new_user.password,
+            password: password_hash.to_string(),
             role: new_user.role
         };
+
         let user = match self
             .col
             .insert_one(new_doc, None).await {
@@ -52,6 +79,39 @@ impl MongoRepo {
                 }
             };
         Ok(user)
+    }
+
+    pub async fn login(&self, credentials: LoginObject) -> Result<AuthResponse, Box<dyn Error>> {
+        // get user by username: if not found return 404
+        let filter = doc! {"username": credentials.username};
+        let resp = match self
+            .col
+            .find_one(filter, None).await {
+                Ok(u) => {
+                    let password_hash = u.unwrap().password;
+                    let parsed_hash = PasswordHash::new(&password_hash).unwrap();
+
+                    match Argon2::default().verify_password(credentials.password.as_bytes(), &parsed_hash) {
+                        Ok(data) => {
+                            let signed_string = jwt::jwt_sign(u.unwrap().email.to_owned());
+
+                            return Ok(AuthResponse {
+                                user: u.unwrap(),
+                                token: signed_string
+                            })
+                        },
+                        Err(e) => {
+                            print!("Login Error: Passwords do not match: {}", e);
+                            panic!("Login Error: Passwords do not match: {}", e)
+                        }
+                    }
+                },
+                Err(e) => {
+                    print!("User does not exist: {}", e);
+                    panic!("User does not exist: {}", e)
+                },
+            };
+        Ok(resp.unwrap())
     }
 
     pub async fn get_user(&self, id: &String) -> Result<User, Box<dyn Error>> {

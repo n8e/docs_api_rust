@@ -16,6 +16,8 @@ jsonwebtoken = "8.1"
 regex = "1.6"
 chrono = "0.4.22"
 struct_helpers = { git = "https://github.com/n8e/struct-helpers", features = ["rocket"] }
+argon2 = "0.4"
+rand_core = { version = "0.6", features = ["std"] }
 
 [dependencies.mongodb]
 version = "2.3"
