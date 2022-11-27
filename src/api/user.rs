@@ -1,5 +1,6 @@
 use crate::helpers::jwt;
 use crate::helpers::mongo_id::MongoId;
+use crate::repository::mongodb_repo::{LoginObject, AuthResponse};
 use crate::{models::user_model::User, repository::mongodb_repo::MongoRepo};
 use mongodb::{results::InsertOneResult};
 use rocket::{http::Status, serde::json::Json, State};
@@ -24,6 +25,26 @@ pub async fn create_user(
     let user_detail = db.create_user(User::from(data)).await;
     match user_detail {
         Ok(user) => Ok(Json(user)),
+        Err(_) => Err(Status::InternalServerError),
+    }
+}
+
+#[post("/", data = "<new_user>")]
+pub async fn login(
+    db: &State<MongoRepo>,
+    new_user: HelpersGuard<Json<User>>,
+) -> Result<Json<AuthResponse>, Status> {
+    let data = new_user.into_deep_inner();
+    println!("{:?}", data);
+
+    let login_object = LoginObject {
+        username: data.username.unwrap(),
+        password: data.password
+    };
+    
+    let user_detail = db.login(LoginObject::from(login_object)).await;
+    match user_detail {
+        Ok(auth_response) => Ok(Json(auth_response)),
         Err(_) => Err(Status::InternalServerError),
     }
 }

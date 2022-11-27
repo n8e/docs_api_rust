@@ -12,6 +12,7 @@ extern crate rocket;
 
 use api::auth::get_jwt;
 use api::user::{
+    login,
     create_user,
     get_user,
     update_user,
@@ -36,4 +37,5 @@ async fn rocket() -> Rocket<Build> {
         .mount("/", routes![hello])
         .mount("/users", routes![create_user, get_user, update_user, delete_user, get_all_users])
         .mount("/auth", routes![get_jwt])
+        .mount("/login", routes![login])
 }

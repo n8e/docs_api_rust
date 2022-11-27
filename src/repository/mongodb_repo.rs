@@ -2,6 +2,7 @@ use std::{env, error::Error};
 extern crate dotenv;
 use dotenv::dotenv;
 use rocket::{futures::StreamExt};
+use serde::{Serialize, Deserialize};
 
 use mongodb::{
     bson::{doc, oid::ObjectId, to_document},
@@ -22,13 +23,23 @@ pub struct MongoRepo {
     col: Collection<User>,
 }
 
-pub struct LoginObject {
+#[derive(Serialize, Deserialize, Debug)]
+pub struct UserResponse {
     username: String,
-    password: String,
+    firstname: String,
+    lastname: String,
+    email: String,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct LoginObject {
+    pub username: String,
+    pub password: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub struct AuthResponse {
-    user: User,
+    user: UserResponse,
     token: String,
 }
 
@@ -88,28 +99,31 @@ impl MongoRepo {
             .col
             .find_one(filter, None).await {
                 Ok(u) => {
-                    let password_hash = u.unwrap().password;
+                    let user = u.as_ref().unwrap();
+                    let password_hash = user.password.to_string();
                     let parsed_hash = PasswordHash::new(&password_hash).unwrap();
 
                     match Argon2::default().verify_password(credentials.password.as_bytes(), &parsed_hash) {
-                        Ok(data) => {
-                            let signed_string = jwt::jwt_sign(u.unwrap().email.to_owned());
+                        Ok(_data) => {
+                            let derived_user = user;
+                            let user_response = UserResponse {
+                                firstname: derived_user.firstname.as_ref().unwrap().to_string(),
+                                lastname: derived_user.lastname.as_ref().unwrap().to_string(),
+                                username: derived_user.username.as_ref().unwrap().to_string(),
+                                email: derived_user.email.as_ref().unwrap().to_string(),
+                            };
+                            let user_email = user_response.email.as_str();
+                            let signed_string = jwt::jwt_sign(user_email);
 
-                            return Ok(AuthResponse {
-                                user: u.unwrap(),
+                            Ok(AuthResponse {
+                                user: user_response,
                                 token: signed_string
                             })
                         },
-                        Err(e) => {
-                            print!("Login Error: Passwords do not match: {}", e);
-                            panic!("Login Error: Passwords do not match: {}", e)
-                        }
+                        Err(_) => Err("Login Error: Passwords do not match".to_string())
                     }
                 },
-                Err(e) => {
-                    print!("User does not exist: {}", e);
-                    panic!("User does not exist: {}", e)
-                },
+                Err(_) => Err("User does not exist".to_string()),
             };
         Ok(resp.unwrap())
     }
