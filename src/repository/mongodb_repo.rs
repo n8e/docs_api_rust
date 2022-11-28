@@ -9,7 +9,7 @@ use mongodb::{
     results::{DeleteResult, InsertOneResult, UpdateResult},
     Client, Collection,
 };
-use crate::{models::user_model::User, helpers::jwt};
+use crate::{models::user::User, helpers::jwt};
 
 use argon2::{
     password_hash::{

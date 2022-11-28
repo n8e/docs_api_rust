@@ -55,7 +55,7 @@ mod tests {
     };
 
     use crate::{
-        models::user_model::User,
+        models::user::User,
         tests::{deserialize, get_json, post_json, serialize, JWT},
     };
 

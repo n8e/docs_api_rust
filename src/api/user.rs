@@ -1,7 +1,7 @@
 use crate::helpers::jwt;
 use crate::helpers::mongo_id::MongoId;
 use crate::repository::mongodb_repo::{LoginObject, AuthResponse};
-use crate::{models::user_model::User, repository::mongodb_repo::MongoRepo};
+use crate::{models::user::User, repository::mongodb_repo::MongoRepo};
 use mongodb::{results::InsertOneResult};
 use rocket::{http::Status, serde::json::Json, State};
 use struct_helpers::rocket::guard::HelpersGuard;
