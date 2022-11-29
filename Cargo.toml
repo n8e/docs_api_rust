@@ -14,7 +14,7 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 dotenv = "0.15.0"
 jsonwebtoken = "8.1"
 regex = "1.6"
-chrono = "0.4.22"
+chrono = { version = "0.4.22", features = ["serde"] }
 struct_helpers = { git = "https://github.com/n8e/struct-helpers", features = ["rocket"] }
 argon2 = "0.4"
 rand_core = { version = "0.6", features = ["std"] }

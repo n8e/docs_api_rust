@@ -1,5 +1,6 @@
 use std::{env, error::Error};
 extern crate dotenv;
+use chrono::Utc;
 use dotenv::dotenv;
 use rocket::{futures::StreamExt};
 use serde::{Serialize, Deserialize};
@@ -9,7 +10,7 @@ use mongodb::{
     results::{DeleteResult, InsertOneResult, UpdateResult},
     Client, Collection,
 };
-use crate::{models::user::User, helpers::jwt};
+use crate::{models::{user::User, document::Document}, helpers::jwt};
 
 use argon2::{
     password_hash::{
@@ -20,7 +21,8 @@ use argon2::{
 };
 
 pub struct MongoRepo {
-    col: Collection<User>,
+    user_col: Collection<User>,
+    document_col: Collection<Document>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -54,9 +56,11 @@ impl MongoRepo {
 
         let client = Client::with_uri_str(client_uri).await.unwrap();
         let db = client.database("rustDB");
-        let col: Collection<User> = db.collection("User");
 
-        MongoRepo { col }
+        let document_col: Collection<Document> = db.collection("Document");
+        let user_col: Collection<User> = db.collection("User");
+
+        MongoRepo { document_col, user_col }
     }
 }
 
@@ -81,7 +85,7 @@ impl MongoRepo {
         };
 
         let user = match self
-            .col
+            .user_col
             .insert_one(new_doc, None).await {
                 Ok(u) => u,
                 Err(e) => {
@@ -96,7 +100,7 @@ impl MongoRepo {
         // get user by username: if not found return 404
         let filter = doc! {"username": credentials.username};
         let resp = match self
-            .col
+            .user_col
             .find_one(filter, None).await {
                 Ok(u) => {
                     let user = u.as_ref().unwrap();
@@ -132,7 +136,7 @@ impl MongoRepo {
         let obj_id = ObjectId::parse_str(id).unwrap();
         let filter = doc! {"_id": obj_id};
         let user_detail = self
-            .col
+            .user_col
             .find_one(filter, None)
             .await 
             .ok()
@@ -148,7 +152,7 @@ impl MongoRepo {
         let filter = doc! {"_id": obj_id};
         let new_doc = doc! { "$set": doc };
         let updated_doc = self
-            .col
+            .user_col
             .update_one(filter, new_doc, None)
             .await
             .ok()
@@ -160,7 +164,7 @@ impl MongoRepo {
         let obj_id = ObjectId::parse_str(id).unwrap();
         let filter = doc! {"_id": obj_id};
         let user_detail = self
-            .col
+            .user_col
             .delete_one(filter, None)
             .await
             .ok()
@@ -169,7 +173,7 @@ impl MongoRepo {
     }
 
     pub async fn get_all_users(&self) -> Result<Vec<User>, Box<dyn Error>> {
-        let users = match self.col.find(None, None).await {
+        let users = match self.user_col.find(None, None).await {
                 Ok(cursors) => cursors.map(|doc| doc.unwrap()).collect().await,
                 Err(_e) => {
                     println!("Error getting list of users");
@@ -178,5 +182,74 @@ impl MongoRepo {
             };
 
         Ok(users)
+    }
+
+
+    /**
+     * Documents
+    */
+
+    pub async fn create_document(&self, new_document: Document) -> Result<InsertOneResult, Box<dyn Error>> {
+        // get owner_id
+
+        let new_doc = Document {
+            id: None,
+            title: new_document.title,
+            content: new_document.content,
+            date_created: Utc::now(),
+            last_modified: Utc::now(),
+            // owner_id: ObjectId("6381e15b7c503c80bb07d0fa")
+        };
+
+        let document = match self
+            .document_col
+            .insert_one(new_doc, None).await {
+                Ok(u) => u,
+                Err(e) => {
+                    print!("Error creating document: {}", e);
+                    panic!("Error creating document: {}", e)
+                }
+            };
+        Ok(document)
+    }
+
+    pub async fn get_document(&self, id: &String) -> Result<Document, Box<dyn Error>> {
+        let obj_id = ObjectId::parse_str(id).unwrap();
+        let filter = doc! {"_id": obj_id};
+        let doc_detail = self
+            .document_col
+            .find_one(filter, None)
+            .await 
+            .ok()
+            .expect("Error getting document detail");
+        Ok(doc_detail.unwrap())
+    }
+
+    pub async fn update_document(&self, id: &String, new_document: Document) -> Result<UpdateResult, Box<dyn Error>> {
+        let mut doc = to_document(&new_document).unwrap();
+        doc.remove("_id");
+
+        let obj_id = ObjectId::parse_str(id).unwrap();
+        let filter = doc! {"_id": obj_id};
+        let new_doc = doc! { "$set": doc };
+        let updated_doc = self
+            .document_col
+            .update_one(filter, new_doc, None)
+            .await
+            .ok()
+            .expect("Error updating document");
+        Ok(updated_doc)
+    }
+
+    pub async fn delete_document(&self, id: &String) -> Result<DeleteResult, Box<dyn Error>> {
+        let obj_id = ObjectId::parse_str(id).unwrap();
+        let filter = doc! {"_id": obj_id};
+        let doc_detail = self
+            .document_col
+            .delete_one(filter, None)
+            .await
+            .ok()
+            .expect("Error deleting document");
+        Ok(doc_detail)
     }
 }
