@@ -17,7 +17,11 @@ use api::user::{
     get_user,
     update_user,
     delete_user,
-    get_all_users
+    get_all_users,
+};
+use api::document::{
+    get_document,
+    create_document, update_document, delete_document
 };
 use repository::mongodb_repo::MongoRepo;
 
@@ -36,6 +40,7 @@ async fn rocket() -> Rocket<Build> {
         .manage(db)
         .mount("/", routes![hello])
         .mount("/users", routes![create_user, get_user, update_user, delete_user, get_all_users])
+        .mount("/users/documents", routes![create_document, get_document, update_document, delete_document])
         .mount("/auth", routes![get_jwt])
         .mount("/login", routes![login])
 }
