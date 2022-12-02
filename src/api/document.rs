@@ -1,8 +1,27 @@
+use crate::helpers::jwt;
 use crate::helpers::mongo_id::MongoId;
 use crate::{models::document::Document, repository::mongodb_repo::MongoRepo};
 use mongodb::{results::InsertOneResult};
 use rocket::{http::Status, serde::json::Json, State};
 use struct_helpers::rocket::guard::HelpersGuard;
+use chrono::prelude::*;
+use serde::{Serialize, Deserialize};
+use struct_helpers::{Helpers};
+
+#[derive(Debug, Default, Serialize, Deserialize, Helpers)]
+pub struct NewDocument {
+    title: Option<String>,
+    content: Option<String>
+}
+
+
+#[derive(Debug, Default, Serialize, Deserialize, Helpers)]
+pub struct DocumentCreateObject {
+    title: Option<String>,
+    content: Option<String>,
+    date_created: DateTime<Utc>,
+    last_modified: DateTime<Utc>,
+}
 
 #[get("/<id>")]
 pub async fn get_document(db: &State<MongoRepo>, id: MongoId) -> Result<Json<Document>, Status> {
@@ -17,13 +36,25 @@ pub async fn get_document(db: &State<MongoRepo>, id: MongoId) -> Result<Json<Doc
 pub async fn create_document(
     db: &State<MongoRepo>,
     new_document: HelpersGuard<Json<Document>>,
+    _auth: jwt::AuthObject
 ) -> Result<Json<InsertOneResult>, Status> {
-    let data = new_document.into_deep_inner();
-    println!("{:?}", data);
-    let doc_detail = db.create_document(Document::from(data)).await;
-    match doc_detail {
-        Ok(document) => Ok(Json(document)),
-        Err(_) => Err(Status::InternalServerError),
+    // get owner_id from auth user
+    let owner_details = db.get_user_by_email(_auth.user).await;
+    match owner_details {
+        Ok(owner) => {
+            print!("-------> {:#?}", owner);
+            let data = new_document.into_deep_inner();
+            println!("{:?}", data);
+
+            let doc_detail = db.create_document(Document::from(data)).await;
+
+            match doc_detail {
+                Ok(document) => Ok(Json(document)),
+                Err(_) => Err(Status::InternalServerError),
+            }
+
+        },
+        Err(_) => Err(Status::Forbidden),
     }
 }
 

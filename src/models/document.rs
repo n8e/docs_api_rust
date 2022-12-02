@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+// use chrono::{DateTime, Utc};
 use mongodb::bson::oid::ObjectId;
 use serde::{Serialize, Deserialize};
 use serde_with::skip_serializing_none;
@@ -14,8 +14,8 @@ pub struct Document {
     #[helper(to_lower_case)]
     pub title: Option<String>,
     pub content: Option<String>,
-    pub date_created: DateTime<Utc>,
-    pub last_modified: DateTime<Utc>,
+    // pub date_created: DateTime<Utc>,
+    // pub last_modified: DateTime<Utc>,
 }
 
 impl Document {

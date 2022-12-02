@@ -1,6 +1,6 @@
 use std::{env, error::Error};
 extern crate dotenv;
-use chrono::Utc;
+// use chrono::Utc;
 use dotenv::dotenv;
 use rocket::{futures::StreamExt};
 use serde::{Serialize, Deserialize};
@@ -144,6 +144,17 @@ impl MongoRepo {
         Ok(user_detail.unwrap())
     }
 
+    pub async fn get_user_by_email(&self, email: String) -> Result<User, Box<dyn Error>> {
+        let filter = doc! {"email": email};
+        let user_detail = self
+            .user_col
+            .find_one(filter, None)
+            .await 
+            .ok()
+            .expect("Error getting user's detail");
+        Ok(user_detail.unwrap())
+    }
+
     pub async fn update_user(&self, id: &String, new_user: User) -> Result<UpdateResult, Box<dyn Error>> {
         let mut doc = to_document(&new_user).unwrap();
         doc.remove("_id");
@@ -196,8 +207,8 @@ impl MongoRepo {
             id: None,
             title: new_document.title,
             content: new_document.content,
-            date_created: Utc::now(),
-            last_modified: Utc::now(),
+            // date_created: Utc::now(),
+            // last_modified: Utc::now(),
             // owner_id: ObjectId("6381e15b7c503c80bb07d0fa")
         };
 

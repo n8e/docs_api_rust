@@ -9,6 +9,12 @@ struct Claims {
     user: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AuthObject {
+    pub authorized: bool,
+    pub user: String,
+}
+
 pub fn jwt_sign(user: &str) -> String {
     let exp = Local::now() + Duration::days(10);
 
@@ -26,7 +32,7 @@ pub fn jwt_sign(user: &str) -> String {
     token
 }
 
-pub fn jwt_validate(token: &str) -> bool {
+pub fn jwt_validate(token: &str) -> AuthObject {
     let t = token.replace("Bearer ", "");
 
     match decode::<Claims>(
@@ -34,16 +40,22 @@ pub fn jwt_validate(token: &str) -> bool {
         &DecodingKey::from_secret("secret".as_ref()),
         &Validation::default(),
     ) {
-        Ok(_t) => return true,
-        _ => return false,
+        Ok(t) => {
+            // get user with decoded token and store
+            return AuthObject {
+                authorized: true,
+                user: t.claims.user
+            };
+        }, 
+        _ => return AuthObject { authorized: false, user: "".to_string() },
     };
 }
 
-#[derive(Debug)]
-pub struct Auth(bool);
+// #[derive(Debug)]
+// pub struct Auth(AuthObject);
 
 #[rocket::async_trait]
-impl<'r> FromRequest<'r> for Auth {
+impl<'r> FromRequest<'r> for AuthObject {
     type Error = &'r str;
 
     async fn from_request(req: &'r Request<'_>) -> Outcome<Self, Self::Error> {
@@ -53,10 +65,10 @@ impl<'r> FromRequest<'r> for Auth {
         };
 
         let validate = jwt_validate(token);
-        if !validate {
+        if !validate.authorized {
             return Outcome::Failure((Status::Unauthorized, "User is not authorized"));
         }
 
-        Outcome::Success(Auth(true))
+        Outcome::Success(validate)
     }
 }

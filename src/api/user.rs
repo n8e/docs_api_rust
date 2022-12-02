@@ -74,7 +74,7 @@ pub async fn update_user(
 }
 
 #[delete("/<id>")]
-pub async fn delete_user(db: &State<MongoRepo>, id: MongoId, _auth: jwt::Auth) -> Result<Json<&str>, Status> {
+pub async fn delete_user(db: &State<MongoRepo>, id: MongoId, _auth: jwt::AuthObject) -> Result<Json<&str>, Status> {
     let result = db.delete_user(&id.to_string()).await;
     match result {
         Ok(res) => {
