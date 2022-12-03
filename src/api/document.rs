@@ -1,12 +1,20 @@
 use crate::helpers::jwt;
 use crate::helpers::mongo_id::MongoId;
 use crate::{models::document::Document, repository::mongodb_repo::MongoRepo};
+use mongodb::bson::oid::ObjectId;
 use mongodb::{results::InsertOneResult};
 use rocket::{http::Status, serde::json::Json, State};
 use struct_helpers::rocket::guard::HelpersGuard;
 use chrono::prelude::*;
 use serde::{Serialize, Deserialize};
 use struct_helpers::{Helpers};
+
+async fn get_owner_id(db: &State<MongoRepo>, email: String) -> Option<ObjectId> {
+    let owner_details = db.get_user_by_email(email).await;
+    let owner = owner_details.unwrap();
+
+    return owner.id;
+}
 
 #[derive(Debug, Default, Serialize, Deserialize, Helpers)]
 pub struct NewDocument {
@@ -39,22 +47,18 @@ pub async fn create_document(
     _auth: jwt::AuthObject
 ) -> Result<Json<InsertOneResult>, Status> {
     // get owner_id from auth user
-    let owner_details = db.get_user_by_email(_auth.user).await;
-    match owner_details {
-        Ok(owner) => {
-            print!("-------> {:#?}", owner);
-            let data = new_document.into_deep_inner();
-            println!("{:?}", data);
+    let owner_id = get_owner_id(db, _auth.user).await;
+    println!("{:?}", owner_id);
 
-            let doc_detail = db.create_document(Document::from(data)).await;
+    
+    let data = new_document.into_deep_inner();
+    println!("{:?}", data);
 
-            match doc_detail {
-                Ok(document) => Ok(Json(document)),
-                Err(_) => Err(Status::InternalServerError),
-            }
+    let doc_detail = db.create_document(Document::from(data)).await;
 
-        },
-        Err(_) => Err(Status::Forbidden),
+    return match doc_detail {
+        Ok(document) => Ok(Json(document)),
+        Err(_) => Err(Status::InternalServerError),
     }
 }
 
