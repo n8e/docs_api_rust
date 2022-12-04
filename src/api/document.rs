@@ -53,7 +53,9 @@ pub async fn create_document(
         id: data.id,
         owner_id: owner_id,
         title: data.title,
-        content: data.content
+        content: data.content,
+        date_created: Utc::now().with_second(1),
+        last_modified: Utc::now().with_second(1),
     };
     let doc_detail = db.create_document(Document::from(new_doc)).await;
 
