@@ -1,24 +1,18 @@
 use std::{env, error::Error};
 extern crate dotenv;
-// use chrono::Utc;
 use dotenv::dotenv;
 use rocket::{futures::StreamExt};
 use serde::{Serialize, Deserialize};
-
+use argon2::{
+    password_hash::{PasswordHash, PasswordVerifier},
+    Argon2
+};
 use mongodb::{
     bson::{doc, oid::ObjectId, to_document},
     results::{DeleteResult, InsertOneResult, UpdateResult},
     Client, Collection,
 };
 use crate::{models::{user::User, document::Document}, helpers::jwt};
-
-use argon2::{
-    password_hash::{
-        rand_core::OsRng,
-        PasswordHash, PasswordHasher, PasswordVerifier, SaltString
-    },
-    Argon2
-};
 
 pub struct MongoRepo {
     user_col: Collection<User>,
@@ -66,27 +60,9 @@ impl MongoRepo {
 
 impl MongoRepo {
     pub async fn create_user(&self, new_user: User) -> Result<InsertOneResult, Box<dyn Error>> {
-        // hash password before saving
-        let password = new_user.password.as_bytes();
-        let salt = SaltString::generate(&mut OsRng);
-        // Argon2 with default params (Argon2id v19)
-        let argon2 = Argon2::default();
-        // Hash password to PHC string ($argon2id$v=19$...)
-        let password_hash = argon2.hash_password(password, &salt).unwrap();
-
-        let new_doc = User {
-            id: None,
-            firstname: new_user.firstname,
-            lastname: new_user.lastname,
-            username: new_user.username,
-            email: new_user.email,
-            password: password_hash.to_string(),
-            role: new_user.role
-        };
-
         let user = match self
             .user_col
-            .insert_one(new_doc, None).await {
+            .insert_one(new_user, None).await {
                 Ok(u) => u,
                 Err(e) => {
                     print!("Error creating user: {}", e);

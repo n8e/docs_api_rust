@@ -39,8 +39,7 @@ async fn rocket() -> Rocket<Build> {
     rocket::build()
         .manage(db)
         .mount("/", routes![hello])
-        .mount("/users", routes![create_user, get_user, update_user, delete_user, get_all_users])
+        .mount("/users", routes![create_user, get_user, update_user, delete_user, get_all_users, login])
         .mount("/users/documents", routes![create_document, get_document, update_document, delete_document])
         .mount("/auth", routes![get_jwt])
-        .mount("/login", routes![login])
 }

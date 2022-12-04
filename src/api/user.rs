@@ -5,6 +5,11 @@ use crate::{models::user::User, repository::mongodb_repo::MongoRepo};
 use mongodb::{results::InsertOneResult};
 use rocket::{http::Status, serde::json::Json, State};
 use struct_helpers::rocket::guard::HelpersGuard;
+use argon2::{
+    password_hash::{rand_core::OsRng, PasswordHasher, SaltString},
+    Argon2
+};
+
 
 #[get("/<id>")]
 pub async fn get_user(db: &State<MongoRepo>, id: MongoId) -> Result<Json<User>, Status> {
@@ -21,15 +26,33 @@ pub async fn create_user(
     new_user: HelpersGuard<Json<User>>,
 ) -> Result<Json<InsertOneResult>, Status> {
     let data = new_user.into_deep_inner();
-    println!("{:?}", data);
-    let user_detail = db.create_user(User::from(data)).await;
+    // hash password before saving
+    let password = data.password.as_bytes();
+    let salt = SaltString::generate(&mut OsRng);
+    // Argon2 with default params (Argon2id v19)
+    let argon2 = Argon2::default();
+    // Hash password to PHC string ($argon2id$v=19$...)
+    let password_hash = argon2.hash_password(password, &salt).unwrap();
+
+    let usr = User {
+        id: None,
+        firstname: data.firstname,
+        lastname: data.lastname,
+        username: data.username,
+        email: data.email,
+        password: password_hash.to_string(),
+        role: data.role
+    };
+   
+    println!("{:?}", usr);
+    let user_detail = db.create_user(User::from(usr)).await;
     match user_detail {
         Ok(user) => Ok(Json(user)),
         Err(_) => Err(Status::InternalServerError),
     }
 }
 
-#[post("/", data = "<new_user>")]
+#[post("/login", data = "<new_user>")]
 pub async fn login(
     db: &State<MongoRepo>,
     new_user: HelpersGuard<Json<User>>,
@@ -89,7 +112,7 @@ pub async fn delete_user(db: &State<MongoRepo>, id: MongoId, _auth: jwt::AuthObj
 }
 
 #[get("/")]
-pub async fn get_all_users(db: &State<MongoRepo>) -> Result<Json<Vec<User>>, Status> {
+pub async fn get_all_users(db: &State<MongoRepo>, _auth: jwt::AuthObject) -> Result<Json<Vec<User>>, Status> {
     let users = db.get_all_users().await;
     match users {
         Ok(users) => Ok(Json(users)),
