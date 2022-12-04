@@ -201,20 +201,9 @@ impl MongoRepo {
     */
 
     pub async fn create_document(&self, new_document: Document) -> Result<InsertOneResult, Box<dyn Error>> {
-        // get owner_id
-
-        let new_doc = Document {
-            id: None,
-            title: new_document.title,
-            content: new_document.content,
-            // date_created: Utc::now(),
-            // last_modified: Utc::now(),
-            // owner_id: ObjectId("6381e15b7c503c80bb07d0fa")
-        };
-
         let document = match self
             .document_col
-            .insert_one(new_doc, None).await {
+            .insert_one(new_document, None).await {
                 Ok(u) => u,
                 Err(e) => {
                     print!("Error creating document: {}", e);

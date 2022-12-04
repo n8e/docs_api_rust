@@ -44,17 +44,18 @@ pub async fn get_document(db: &State<MongoRepo>, id: MongoId) -> Result<Json<Doc
 pub async fn create_document(
     db: &State<MongoRepo>,
     new_document: HelpersGuard<Json<Document>>,
-    _auth: jwt::AuthObject
+    _auth: jwt::AuthObject,
 ) -> Result<Json<InsertOneResult>, Status> {
     // get owner_id from auth user
     let owner_id = get_owner_id(db, _auth.user).await;
-    println!("{:?}", owner_id);
-
-    
     let data = new_document.into_deep_inner();
-    println!("{:?}", data);
-
-    let doc_detail = db.create_document(Document::from(data)).await;
+    let new_doc = Document {
+        id: data.id,
+        owner_id: owner_id,
+        title: data.title,
+        content: data.content
+    };
+    let doc_detail = db.create_document(Document::from(new_doc)).await;
 
     return match doc_detail {
         Ok(document) => Ok(Json(document)),

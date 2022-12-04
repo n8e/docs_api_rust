@@ -10,7 +10,7 @@ pub struct Document {
     #[serde(rename = "_id")]
     pub id: Option<ObjectId>,
 
-    // pub owner_id: Option<ObjectId>,
+    pub owner_id: Option<ObjectId>,
     #[helper(to_lower_case)]
     pub title: Option<String>,
     pub content: Option<String>,
@@ -25,4 +25,4 @@ impl Document {
 }
 
 
-// TODO: add "owner_id" and link to User model; default date fields to right now
+// TODO: default date fields to right now
